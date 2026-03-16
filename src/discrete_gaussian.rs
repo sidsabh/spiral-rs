@@ -132,6 +132,30 @@ impl DiscreteGaussian {
         to_output
     }
 
+    pub fn sample_wordpir(&self, modulus: i128, rng: &mut ChaCha20Rng) -> u64 {
+        let sampled_val = rng.gen::<u64>();
+        let len = (2 * self.max_val + 1) as usize;
+        let mut to_output = 0;
+
+        for i in (0..len).rev() {
+            let mut out_val = (i as i64) - self.max_val;
+            // this branch is ok: not secret-dependent
+            if out_val < 0 {
+                out_val = (out_val as i128 + modulus) as i64;
+            }
+            let out_val_u64 = out_val as u64;
+
+            // let point = CDF_TABLE_GAUS_6_4[i];
+            let point = self.cdf_table[i];
+
+            // if sampled_val <= point, set to_output := out_val
+            // (in constant time)
+            let cmp = !(sampled_val.ct_gt(&point));
+            to_output.conditional_assign(&out_val_u64, cmp);
+        }
+        to_output
+    }
+
     /// Sample from a discrete Gaussian distribution. THIS IS NOT CONSTANT TIME!
     pub fn fast_sample(&self, modulus: u64, rng: &mut ChaCha20Rng) -> u64 {
         let sampled_val = self.weighted_index.sample(rng);

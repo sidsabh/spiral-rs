@@ -273,11 +273,13 @@ impl Params {
             modulus *= m;
         }
         let modulus_log2 = log2_ceil(modulus);
+        // gets the m in Barrett for each modulus
         let (barrett_cr_0, barrett_cr_1) = get_barrett(moduli);
         let (barrett_cr_0_modulus, barrett_cr_1_modulus) = get_barrett_crs(modulus);
         let mut mod0_inv_mod1 = 0;
         let mut mod1_inv_mod0 = 0;
         if crt_count == 2 {
+            // for composition
             mod0_inv_mod1 = moduli[0] * invert_uint_mod(moduli[0], moduli[1]).unwrap();
             mod1_inv_mod0 = moduli[1] * invert_uint_mod(moduli[1], moduli[0]).unwrap();
         }

@@ -877,7 +877,7 @@ pub fn from_ntt(a: &mut PolyMatrixRaw, b: &PolyMatrixNTT) {
                 let pol_src = b.get_poly(r, c);
                 let pol_dst = a.get_poly_mut(r, c);
                 scratch[0..pol_src.len()].copy_from_slice(pol_src);
-                ntt_inverse(params, scratch);
+                ntt_inverse(params, scratch); // polynomial in raw form, but split into CRT moduli
                 for z in 0..params.poly_len {
                     pol_dst[z] = params.crt_compose(scratch, z);
                 }
@@ -886,6 +886,9 @@ pub fn from_ntt(a: &mut PolyMatrixRaw, b: &PolyMatrixNTT) {
     });
 }
 
+// B: RLWE CT in NTT
+// scratch: just a vec to store intermediate
+// a: output, just the random portion of the RLWE CT in raw poly form
 pub fn from_ntt_scratch(a: &mut PolyMatrixRaw, scratch: &mut [u64], b: &PolyMatrixNTT) {
     assert_eq!(b.rows, 2);
     assert_eq!(b.cols, 1);
@@ -893,7 +896,7 @@ pub fn from_ntt_scratch(a: &mut PolyMatrixRaw, scratch: &mut [u64], b: &PolyMatr
     let params = b.params;
     for r in 0..b.rows {
         for c in 0..b.cols {
-            let pol_src = b.get_poly(r, c);
+            let pol_src = b.get_poly(r, c); // gets full poly in CRT, NTT form
             scratch[0..pol_src.len()].copy_from_slice(pol_src);
             ntt_inverse(params, scratch);
             if r == 0 {

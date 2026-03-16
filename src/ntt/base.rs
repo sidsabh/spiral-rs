@@ -10,6 +10,7 @@ pub fn ntt_forward(params: &Params, operand_overall: &mut [u64]) {
     let n = 1 << log_n;
 
     for coeff_mod in 0..params.crt_count {
+        // NTT per CRT modulus
         let forward_table = params.get_ntt_forward_table(coeff_mod).as_ptr();
         let forward_table_prime = params.get_ntt_forward_prime_table(coeff_mod).as_ptr();
         let modulus_small = params.moduli[coeff_mod] as u32;

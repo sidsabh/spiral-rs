@@ -118,8 +118,10 @@ pub fn recenter(val: u64, from_modulus: u64, to_modulus: u64) -> u64 {
     a_val as u64
 }
 
+// 2^128/q
 pub fn get_barrett_crs(modulus: u64) -> (u64, u64) {
     let numerator = [0, 0, 1];
+    // returns (numerator, quotient)
     let (_, quotient) = divide_uint192_inplace(numerator, modulus);
 
     (quotient[0], quotient[1])
@@ -178,37 +180,49 @@ fn add_u64(op1: u64, op2: u64, out: &mut u64) -> u64 {
 }
 
 fn barrett_raw_u128(val: u128, cr0: u64, cr1: u64, modulus: u64) -> u64 {
-    let (zx, zy) = split(val);
+    // we have val in u128 space (< 2^79), (cr0, cr1) = m (which is 2^128/q)
+    // we want val % modulus
+    //
+    // Barrett: val % q = val - floor(val / q) * q
+    //                  ≈ val - floor(val * m / 2^128) * q
+    //
+    // We compute val * m (256-bit product) but only keep the high 64 bits
+    // (bits 128-191), which gives us floor(val * m / 2^128) = floor(val / q)
 
+    // split val into low 64 (zx) and high 64 (zy)
+    // val = zy * 2^64 + zx
+    let (zx, zy) = split(val);
     let mut tmp1 = 0;
     let mut tmp3;
     let mut carry;
+
+    // val * m = (zy * 2^64 + zx) * (cr1 * 2^64 + cr0)
+    //         = zx*cr0 + (zx*cr1 + zy*cr0)*2^64 + zy*cr1*2^128
+    //
+    // We only need bits 128+, so we track carries carefully:
+
+    // zx * cr0: only need high 64 bits (bits 64-127 of product)
     let (_, prody) = mul_u128(zx, cr0);
     carry = prody;
+
+    // zx * cr1: contributes to bits 64-191
     let (mut tmp2x, mut tmp2y) = mul_u128(zx, cr1);
     tmp3 = tmp2y + add_u64(tmp2x, carry, &mut tmp1);
+
+    // zy * cr0: contributes to bits 64-191
     (tmp2x, tmp2y) = mul_u128(zy, cr0);
     carry = tmp2y + add_u64(tmp1, tmp2x, &mut tmp1);
+
+    // zy * cr1: contributes to bits 128-255
+    // tmp1 now holds bits 128-191 of (val * m), i.e., floor(val * m / 2^128)
     tmp1 = zy * cr1 + tmp3 + carry;
+
+    // final step: val - floor(val/q) * q
+    // only need low 64 bits of result (since result < q < 2^64)
     tmp3 = zx.wrapping_sub(tmp1.wrapping_mul(modulus));
-
     tmp3
-
-    // uint64_t zx = val & (((__uint128_t)1 << 64) - 1);
-    // uint64_t zy = val >> 64;
-
-    // uint64_t tmp1, tmp3, carry;
-    // ulonglong2_h prod = umul64wide(zx, const_ratio_0);
-    // carry = prod.y;
-    // ulonglong2_h tmp2 = umul64wide(zx, const_ratio_1);
-    // tmp3 = tmp2.y + cpu_add_u64(tmp2.x, carry, &tmp1);
-    // tmp2 = umul64wide(zy, const_ratio_0);
-    // carry = tmp2.y + cpu_add_u64(tmp1, tmp2.x, &tmp1);
-    // tmp1 = zy * const_ratio_1 + tmp3 + carry;
-    // tmp3 = zx - tmp1 * modulus;
-
-    // return tmp3;
 }
+
 
 pub fn barrett_reduction_u128_raw(modulus: u64, cr0: u64, cr1: u64, val: u128) -> u64 {
     let mut reduced_val = barrett_raw_u128(val, cr0, cr1, modulus);
@@ -347,6 +361,7 @@ pub fn add_uint(operand1: &[u64], operand2: &[u64], uint64_count: usize, result:
     carry
 }
 
+// grade school divison, binary form
 pub fn divide_uint192_inplace(mut numerator: [u64; 3], denominator: u64) -> ([u64; 3], [u64; 3]) {
     let mut numerator_bits = get_significant_bit_count(&numerator);
     let mut denominator_bits = get_significant_bit_count(slice::from_ref(&denominator));

@@ -453,6 +453,7 @@ impl<'a> Client<'a> {
         p
     }
 
+    // generates m RLWE samples (Rq^2xm)
     fn get_fresh_reg_public_key(
         &self,
         m: usize,
@@ -464,7 +465,7 @@ impl<'a> Client<'a> {
         let mut p = PolyMatrixNTT::zero(params, 2, m);
 
         for i in 0..m {
-            p.copy_into(&self.get_regev_sample(rng, rng_pub), 0, i);
+            p.copy_into(&self.get_regev_sample(rng, rng_pub), 0, i); // this decievingly actually places the full Rq^2 into the desired column 
         }
         p
     }
