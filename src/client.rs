@@ -391,6 +391,13 @@ impl<'a> Client<'a> {
         &self.sk_reg
     }
 
+    /// Set the RLWE secret key to a custom distribution (e.g., U(2) for SandwichPIR).
+    /// Also updates sk_reg_full = [I | sk_reg].
+    pub fn set_sk_reg(&mut self, sk: PolyMatrixRaw<'a>) {
+        self.sk_reg = sk;
+        self.sk_reg_full = matrix_with_identity(&self.sk_reg);
+    }
+
     pub fn get_sk_gsw(&self) -> &PolyMatrixRaw<'a> {
         &self.sk_gsw
     }
